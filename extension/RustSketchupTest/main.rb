@@ -1,4 +1,4 @@
-require File.join(__dir__, 'RustSketchupTest.so')
+require File.join(__dir__, 'RustSketchupTest.bundle')
 
 module Lindale
   module RustSketchupTest

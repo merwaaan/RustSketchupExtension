@@ -3,7 +3,12 @@ name = "rust-sketchup-test"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+magnus = { version = "0.5.3", features = ["embed"] }
+rb-sys = { version = "0.9.75", features = ["global-allocator"] }
+
 [lib]
 crate-type = ["dylib"]
 
-[dependencies]
+[[bin]]
+name = "bin"

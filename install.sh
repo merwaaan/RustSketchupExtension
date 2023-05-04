@@ -1,3 +1,3 @@
 #!/bin/bash
 
-cp -r extension/* "$APPDATA/SketchUp/SketchUp 2022/SketchUp/Plugins/"
+cp -r extension/* "$HOME/Library/Application Support/SketchUp 2022/SketchUp/Plugins/"
