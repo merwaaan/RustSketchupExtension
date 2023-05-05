@@ -7,6 +7,14 @@ pub struct Value {
 
 pub type Id = libc::uintptr_t;
 
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct AnyObject {
+    value: Value,
+}
+
+pub type Callback<I, O> = extern "C" fn(libc::c_int, *const AnyObject, I) -> O;
+
 #[link(name = "x64-msvcrt-ruby270")]
 extern "C" {
     pub static rb_cObject: Value;
@@ -15,7 +23,13 @@ extern "C" {
     pub fn rb_intern(name: *const libc::c_char) -> Id;
     //pub fn rb_intern2(name: *const libc::c_char, length: libc::c_long) -> Id;
     pub fn rb_const_get(class: Value, id: Id) -> Value;
-    pub fn rb_define_module_under(outer: Value, name: *const libc::c_char);
+    pub fn rb_define_module_under(module: Value, name: *const libc::c_char) -> Value;
+    pub fn rb_define_module_function(
+        module: Value,
+        name: *const libc::c_char,
+        callback: *const libc::c_void,
+        argc: libc::c_int,
+    );
 
     // Number stuff
     pub fn rb_int2inum(x: libc::intptr_t) -> Value;
@@ -45,6 +59,10 @@ pub fn multiply(x: i32, y: i32) {
     .expect("Unable to write file");
 }
 
+fn callback_test(_rb_module: Value) -> Value {
+    return unsafe { rb_int2inum(666) };
+}
+
 #[no_mangle]
 pub extern "C" fn Init_RustSketchupTest() {
     say_hello();
@@ -72,5 +90,14 @@ pub extern "C" fn Init_RustSketchupTest() {
             rb_module_rustsketchuptest,
             "Rust\0".as_ptr() as *const libc::c_char,
         )
+    };
+
+    unsafe {
+        rb_define_module_function(
+            rb_module_rust,
+            "test\0".as_ptr() as *const libc::c_char,
+            callback_test as *const libc::c_void,
+            0,
+        );
     };
 }
