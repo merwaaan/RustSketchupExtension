@@ -47,6 +47,10 @@ extern "C" {
     pub fn rb_ary_new_capa(capacity: libc::c_long) -> Value;
     pub fn rb_ary_push(array: Value, item: Value) -> Value;
     pub fn rb_ary_entry(array: Value, index: libc::c_long) -> Value;
+
+    // Strings
+
+    pub fn rb_str_new_cstr(str: *const libc::c_char) -> Value;
 }
 
 #[derive(Debug, PartialEq)]

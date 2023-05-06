@@ -1,5 +1,6 @@
 use crate::{
     basic::callback_test,
+    gameboy::{load_rom, press_button, run_frame},
     physics::{set_dynamic_objects, set_static_objects, simulate},
     polyhedron::generate_polyhedron,
     ruby::{
@@ -8,6 +9,7 @@ use crate::{
 };
 
 pub mod basic;
+pub mod gameboy;
 pub mod physics;
 pub mod polyhedron;
 pub mod ruby;
@@ -41,4 +43,8 @@ pub extern "C" fn Init_RustSketchupTest() {
     ruby_function!(rb_module_rust, set_static_objects, 1);
     ruby_function!(rb_module_rust, set_dynamic_objects, 1);
     ruby_function!(rb_module_rust, simulate, 1);
+
+    ruby_function!(rb_module_rust, load_rom, 1);
+    ruby_function!(rb_module_rust, press_button, 1);
+    ruby_function!(rb_module_rust, run_frame, 1);
 }

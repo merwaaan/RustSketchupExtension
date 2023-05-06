@@ -111,6 +111,33 @@ module RustTest
           UI.stop_timer(timer) if frame_index >= simulation.length()
         end
       }
+
+      # GameBoy
+
+      screen_material = all_materials['screen'] || all_materials.add("screen")
+
+      menu.add_item("GameBoy: load") {
+        RustTest::Rust.load_rom(123)
+      }
+
+      menu.add_item("GameBoy: run") {
+
+        RustTest::Rust.load_rom(123)
+
+        timer = UI.start_timer(1.0 / 60.0, true) do
+          screen_buffer = RustTest::Rust.run_frame(1)
+
+          image = Sketchup::ImageRep.new
+
+          # color = Sketchup::Color.new("Red")
+          # rgba = color.to_a
+          # bgra = rgba.values_at(2, 1, 0, 3)
+          # color_data = bgra.pack("C*")
+          image.set_data(160, 144, 24, 0, screen_buffer.pack("C*"))
+          screen_material.texture = image
+          Sketchup.active_model.active_view.invalidate
+        end
+      }
     end
 
   end
