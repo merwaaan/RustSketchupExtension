@@ -1,7 +1,7 @@
 require 'sketchup'
 require 'extensions'
 
-module RustTest
+module RustExtension
   unless file_loaded?(__FILE__)
 
     # Register the extension

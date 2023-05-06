@@ -1,11 +1,5 @@
-use crate::{
-    basic::callback_test,
-    gameboy::{load_rom, press_button, run_frame},
-    physics::{set_dynamic_objects, set_static_objects, simulate},
-    polyhedron::generate_polyhedron,
-    ruby::{
-        rb_cObject, rb_const_get, rb_define_module_function, rb_define_module_under, rb_intern,
-    },
+use crate::ruby::{
+    rb_cObject, rb_const_get, rb_define_module_function, rb_define_module_under, rb_intern,
 };
 
 pub mod basic;
@@ -25,26 +19,37 @@ pub extern "C" fn Init_RustSketchupTest() {
 
     // Rust functions exposed to Ruby
 
-    let rb_module_rusttest = unsafe {
+    let rb_module = unsafe {
         rb_const_get(
             rb_cObject,
-            rb_intern("RustTest\0".as_ptr() as *const libc::c_char),
+            rb_intern("RustExtension\0".as_ptr() as *const libc::c_char),
         )
     };
 
-    let rb_module_rust = unsafe {
-        rb_define_module_under(rb_module_rusttest, "Rust\0".as_ptr() as *const libc::c_char)
-    };
+    ruby_function!(rb_module, basic::callback_test, "binding_test", 1);
 
-    ruby_function!(rb_module_rust, callback_test, 1);
+    ruby_function!(
+        rb_module,
+        polyhedron::generate_polyhedron,
+        "generate_polyhedron",
+        0
+    );
 
-    ruby_function!(rb_module_rust, generate_polyhedron, 0);
+    ruby_function!(
+        rb_module,
+        physics::set_static_objects,
+        "physics_set_static_object",
+        1
+    );
+    ruby_function!(
+        rb_module,
+        physics::set_dynamic_objects,
+        "physics_set_dynamic_objects",
+        1
+    );
+    ruby_function!(rb_module, physics::simulate, "physics_simulate", 1);
 
-    ruby_function!(rb_module_rust, set_static_objects, 1);
-    ruby_function!(rb_module_rust, set_dynamic_objects, 1);
-    ruby_function!(rb_module_rust, simulate, 1);
-
-    ruby_function!(rb_module_rust, load_rom, 1);
-    ruby_function!(rb_module_rust, press_button, 1);
-    ruby_function!(rb_module_rust, run_frame, 1);
+    ruby_function!(rb_module, gameboy::load_rom, "gameboy_load_rom", 1);
+    ruby_function!(rb_module, gameboy::press_button, "gameboy_press_button", 1);
+    ruby_function!(rb_module, gameboy::run_frame, "gameboy_run_frame", 1);
 }

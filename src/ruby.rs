@@ -101,11 +101,11 @@ pub unsafe fn rb_ary_len(value: Value) -> libc::c_long {
 
 #[macro_export]
 macro_rules! ruby_function {
-    ( $rb_module:ident, $function:expr, $argc:expr ) => {
+    ( $rb_module:ident, $function:expr, $binding_name:expr, $argc:expr ) => {
         unsafe {
             rb_define_module_function(
                 $rb_module,
-                concat!(stringify!($function), "\0").as_ptr() as *const libc::c_char,
+                concat!($binding_name, "\0").as_ptr() as *const libc::c_char,
                 $function as *const libc::c_void,
                 $argc as libc::c_int,
             );

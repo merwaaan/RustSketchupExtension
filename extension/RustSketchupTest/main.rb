@@ -1,6 +1,6 @@
 require File.join(__dir__, 'RustSketchupTest.so')
 
-module RustTest
+module RustExtension
   unless file_loaded?(__FILE__)
 
     UI.add_context_menu_handler do |menu|
@@ -8,7 +8,7 @@ module RustTest
       # Polyhedron
 
       menu.add_item("Polyhedron") {
-        polyhedron = RustTest::Rust.generate_polyhedron
+        polyhedron = generate_polyhedron
 
         model = Sketchup.active_model
 
@@ -80,16 +80,16 @@ module RustTest
 
       menu.add_item("Physics: set static") {
         data = prepare_objects.call(Sketchup.active_model.selection.to_a, true)
-        RustTest::Rust.set_static_objects(data)
+        physics_set_static_objects(data)
       }
 
       menu.add_item("Physics: set dynamic") {
         data = prepare_objects.call(Sketchup.active_model.selection.to_a, false)
-        RustTest::Rust.set_dynamic_objects(data)
+        physics_set_dynamic_objects(data)
       }
 
       menu.add_item("Physics: simulate") {
-        simulation = RustTest::Rust.simulate(200)
+        simulation = physics_simulate(200)
 
         frame_index = 0
 
@@ -117,15 +117,15 @@ module RustTest
       screen_material = all_materials['screen'] || all_materials.add("screen")
 
       menu.add_item("GameBoy: load") {
-        RustTest::Rust.load_rom(123)
+        gameboy_load_rom(123)
       }
 
       menu.add_item("GameBoy: run") {
 
-        RustTest::Rust.load_rom(123)
+        gameboy_load_rom(123)
 
         timer = UI.start_timer(1.0 / 60.0, true) do
-          screen_buffer = RustTest::Rust.run_frame(1)
+          screen_buffer = gameboy_run_frame(1)
 
           image = Sketchup::ImageRep.new
 
