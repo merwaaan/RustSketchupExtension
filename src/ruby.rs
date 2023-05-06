@@ -46,6 +46,53 @@ extern "C" {
     pub fn rb_ary_new() -> Value;
     pub fn rb_ary_new_capa(capacity: libc::c_long) -> Value;
     pub fn rb_ary_push(array: Value, item: Value) -> Value;
+    pub fn rb_ary_entry(array: Value, index: libc::c_long) -> Value;
+}
+
+#[derive(Debug, PartialEq)]
+#[repr(C)]
+enum RArrayEmbed {
+    LenMax = 3,
+    Flag = (1 << 13) as isize,
+    LenMask = ((1 << 16) | (1 << 15)) as isize,
+    LenShift = (12 + 3) as isize,
+}
+
+#[repr(C)]
+struct RArrayAs {
+    heap: RArrayHeap,
+}
+
+#[repr(C)]
+struct RArrayHeap {
+    len: libc::c_long,
+    // Really, this is a union but value is the largest item.
+    value: libc::uintptr_t,
+    ptr: libc::uintptr_t,
+}
+
+#[repr(C)]
+pub struct RBasic {
+    pub flags: libc::uintptr_t,
+    pub klass: libc::uintptr_t,
+}
+
+#[repr(C)]
+struct RArray {
+    basic: RBasic,
+    as_: RArrayAs,
+}
+
+pub unsafe fn rb_ary_len(value: Value) -> libc::c_long {
+    let rarray: *const RArray = std::mem::transmute(value.value);
+    let flags = (*rarray).basic.flags;
+
+    if flags & (RArrayEmbed::Flag as libc::size_t) == 0 {
+        (*rarray).as_.heap.len
+    } else {
+        ((flags as i64 >> RArrayEmbed::LenShift as i64)
+            & (RArrayEmbed::LenMask as i64 >> RArrayEmbed::LenShift as i64)) as libc::c_long
+    }
 }
 
 #[macro_export]
