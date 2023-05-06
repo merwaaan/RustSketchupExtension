@@ -1,12 +1,15 @@
 use crate::{
     basic::callback_test,
+    polyhedron::generate_polyhedron,
     ruby::{
         rb_cObject, rb_const_get, rb_define_module_function, rb_define_module_under, rb_intern,
     },
 };
 
 pub mod basic;
+pub mod polyhedron;
 pub mod ruby;
+pub mod terrain;
 
 #[no_mangle]
 pub extern "C" fn Init_RustSketchupTest() {
@@ -30,4 +33,5 @@ pub extern "C" fn Init_RustSketchupTest() {
     };
 
     ruby_function!(rb_module_rust, callback_test, 1);
+    ruby_function!(rb_module_rust, generate_polyhedron, 0);
 }

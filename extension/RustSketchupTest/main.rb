@@ -3,20 +3,28 @@ require File.join(__dir__, 'RustSketchupTest.so')
 module RustTest
   unless file_loaded?(__FILE__)
 
-    # Setup the UI
+    UI.add_context_menu_handler do |menu|
 
-    test_cmd = UI::Command.new('Import model...') do
-      puts 'Calling Rust function...'
-      # TODO
+      # Polyhedron
+
+      menu.add_item("Polyhedron") {
+        polyhedron = RustTest::Rust.generate_polyhedron
+
+        model = Sketchup.active_model
+
+        model.start_operation('Create polyhedron', true)
+
+        group = model.entities.add_group
+
+        group.entities.build { |builder|
+          polyhedron.each do |face|
+            builder.add_face(face)
+          end
+        }
+
+        model.commit_operation
+      }
     end
 
-    test_cmd.tooltip = 'test'
-    test_cmd.menu_text = 'test'
-
-    # Build the menu
-
-    transmutr_menu = UI.menu('Plugins').add_submenu('RustSketchupTest')
-
-    transmutr_menu.add_item(test_cmd)
   end
 end

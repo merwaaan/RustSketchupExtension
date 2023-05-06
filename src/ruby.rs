@@ -20,6 +20,7 @@ extern "C" {
     pub static rb_cObject: Value;
 
     // Misc.
+
     pub fn rb_intern(name: *const libc::c_char) -> Id;
     //pub fn rb_intern2(name: *const libc::c_char, length: libc::c_long) -> Id;
     pub fn rb_const_get(class: Value, id: Id) -> Value;
@@ -31,10 +32,20 @@ extern "C" {
         argc: libc::c_int,
     );
 
-    // Number stuff
+    // Numbers
+
     pub fn rb_int2inum(x: libc::intptr_t) -> Value;
     pub fn rb_num2int(x: Value) -> libc::c_long;
     pub fn rb_int_mul(x: Value, y: Value) -> Value;
+
+    pub fn rb_float_new(num: f64) -> Value;
+    pub fn rb_num2dbl(num: Value) -> libc::c_double;
+
+    // Arrays
+
+    pub fn rb_ary_new() -> Value;
+    pub fn rb_ary_new_capa(capacity: libc::c_long) -> Value;
+    pub fn rb_ary_push(array: Value, item: Value) -> Value;
 }
 
 #[macro_export]
