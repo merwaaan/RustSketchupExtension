@@ -29,10 +29,13 @@ module RustExtension
 
       all_materials = Sketchup.active_model.materials
 
-      static_material = all_materials['physics static'] || all_materials.add("physics static")
+      STATIC_MATERIAL_NAME = 'physics static'
+      DYNAMIC_MATERIAL_NAME = 'physics dynamic'
+
+      static_material = all_materials[STATIC_MATERIAL_NAME] || all_materials.add(STATIC_MATERIAL_NAME)
       static_material.color = 'red'
 
-      dynamic_material = all_materials['physics dynamic'] || all_materials.add("physics dynamic")
+      dynamic_material = all_materials[DYNAMIC_MATERIAL_NAME] || all_materials.add(DYNAMIC_MATERIAL_NAME)
       dynamic_material.color = 'green'
 
       prepare_objects = lambda do |entities, static|
@@ -100,8 +103,15 @@ module RustExtension
             id = object_data[0]
             entity = Sketchup.active_model.find_entity_by_persistent_id(id)
 
-            position = object_data[1]
-            entity.move!(Geom::Transformation.translation(position))
+            position = Geom::Transformation.translation(object_data[1])
+
+            rotation = Geom::Transformation.rotation(
+              Geom::Point3d.new(0, 0, 0),
+              object_data[2].slice(0, 3),
+              object_data[2][3]
+            )
+
+            entity.move!(position * rotation)
           end
 
           Sketchup.active_model.active_view.invalidate
@@ -111,6 +121,20 @@ module RustExtension
           UI.stop_timer(timer) if frame_index >= simulation.length()
         end
       }
+
+      static_initial = []
+      dynamic_initial = []
+
+      Sketchup.active_model.entities.each do |entity|
+        if entity.material == static_material
+          static_initial.push(entity)
+        elsif entity.material == dynamic_material
+          dynamic_initial.push(entity)
+        end
+      end
+
+      physics_set_static_objects(prepare_objects.call(static_initial, true))
+      physics_set_dynamic_objects(prepare_objects.call(dynamic_initial, false))
 
       # GameBoy
 

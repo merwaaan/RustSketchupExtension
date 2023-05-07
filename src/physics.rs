@@ -159,16 +159,36 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
 
             rb_object_data.push(RubyInt::new(body.user_data as i64));
 
-            // Transformation
+            // Position
 
-            let mut p = body.translation().clone();
-            p.scale_mut(39.3701);
+            let mut position = body.translation().clone();
+            position.scale_mut(39.3701);
 
             let rb_position = RubyArray::with_capacity(3);
-            rb_position.push(RubyFloat::new(p.x.into()));
-            rb_position.push(RubyFloat::new(p.y.into()));
-            rb_position.push(RubyFloat::new(p.z.into()));
+            rb_position.push(RubyFloat::new(position.x.into()));
+            rb_position.push(RubyFloat::new(position.y.into()));
+            rb_position.push(RubyFloat::new(position.z.into()));
             rb_object_data.push(rb_position);
+
+            // Rotation
+
+            let maybe_axis_angle = body.rotation().axis_angle();
+
+            let rb_rotation = RubyArray::with_capacity(3);
+
+            if let Some(axis_angle) = maybe_axis_angle {
+                rb_rotation.push(RubyFloat::new(axis_angle.0[0].into()));
+                rb_rotation.push(RubyFloat::new(axis_angle.0[1].into()));
+                rb_rotation.push(RubyFloat::new(axis_angle.0[2].into()));
+                rb_rotation.push(RubyFloat::new(axis_angle.1.into()));
+            } else {
+                rb_rotation.push(RubyFloat::new(1.0));
+                rb_rotation.push(RubyFloat::new(0.0));
+                rb_rotation.push(RubyFloat::new(0.0));
+                rb_rotation.push(RubyFloat::new(0.0));
+            }
+
+            rb_object_data.push(rb_rotation);
 
             rb_frame.push(rb_object_data);
         }
