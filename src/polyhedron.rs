@@ -1,6 +1,6 @@
 use polyhedron_ops::Polyhedron;
 
-use crate::ruby::{rb_ary_new_capa, rb_ary_push, rb_float_new, rb_int2inum, Value};
+use crate::ruby::{array::RubyArray, numeric::RubyFloat, Value};
 
 pub fn generate_polyhedron(_rb_module: Value) -> Value {
     let polyhedron = Polyhedron::dodecahedron()
@@ -11,26 +11,24 @@ pub fn generate_polyhedron(_rb_module: Value) -> Value {
         .triangulate(Some(true))
         .finalize();
 
-    let rb_faces = unsafe { rb_ary_new_capa(polyhedron.faces().len() as libc::c_long) };
+    let rb_faces = RubyArray::with_capacity(polyhedron.faces().len());
 
     for face in polyhedron.faces() {
-        let rb_face = unsafe { rb_ary_new_capa(face.len() as libc::c_long) };
+        let rb_face = RubyArray::with_capacity(face.len());
 
         for vertex_index in face {
             let vertex = polyhedron.positions()[*vertex_index as usize];
 
-            unsafe {
-                let rb_vertex = rb_ary_new_capa(3);
-                rb_ary_push(rb_vertex, rb_float_new(vertex.x.into()));
-                rb_ary_push(rb_vertex, rb_float_new(vertex.y.into()));
-                rb_ary_push(rb_vertex, rb_float_new(vertex.z.into()));
+            let rb_vertex = RubyArray::with_capacity(3);
+            rb_vertex.push(RubyFloat::new(vertex.x as f64));
+            rb_vertex.push(RubyFloat::new(vertex.y as f64));
+            rb_vertex.push(RubyFloat::new(vertex.z as f64));
 
-                rb_ary_push(rb_face, rb_vertex);
-            }
+            rb_face.push(rb_vertex);
         }
 
-        unsafe { rb_ary_push(rb_faces, rb_face) };
+        rb_faces.push(rb_face)
     }
 
-    return rb_faces;
+    return rb_faces.into();
 }

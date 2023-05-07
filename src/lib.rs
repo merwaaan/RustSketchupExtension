@@ -1,6 +1,4 @@
-use crate::ruby::{
-    rb_cObject, rb_const_get, rb_define_module_function, rb_define_module_under, rb_intern,
-};
+use crate::ruby::ruby::{rb_cObject, rb_const_get, rb_define_module_function, rb_intern};
 
 pub mod basic;
 pub mod gameboy;

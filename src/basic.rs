@@ -1,19 +1,15 @@
-use crate::ruby::{rb_int2inum, rb_int_mul, rb_num2int, Value};
+use crate::ruby::{RubyInt, Value};
 
 pub fn say_hello() {
     std::fs::write("C:/Users/Utilisateur/rust_extension_loaded.txt", "Hello!")
         .expect("Unable to write file");
 }
 
-pub fn multiply(x: i32, y: i32) {
-    println!("Hello, world!");
-
-    let x_rb = unsafe { rb_int2inum(x as libc::intptr_t) };
-    let y_rb = unsafe { rb_int2inum(y as libc::intptr_t) };
-    let xy_rb = unsafe { rb_int_mul(x_rb, y_rb) };
-    let xy = unsafe { rb_num2int(xy_rb) };
-
-    println!("{}", xy);
+pub fn multiply(x: i64, y: i64) {
+    let rb_x: RubyInt = x.into();
+    let rb_y: RubyInt = y.into();
+    let rb_xy = rb_x.multiply(rb_y);
+    let xy: i64 = rb_xy.into();
 
     std::fs::write(
         "C:/Users/Utilisateur/rust_multiplies_numbers.txt",
@@ -23,5 +19,5 @@ pub fn multiply(x: i32, y: i32) {
 }
 
 pub fn callback_test(_rb_module: Value) -> Value {
-    return unsafe { rb_int2inum(666) };
+    RubyInt::new(666).into()
 }

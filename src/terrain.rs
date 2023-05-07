@@ -1,4 +1,4 @@
-use crate::ruby::{rb_ary_new_capa, rb_int2inum, Value};
+use crate::ruby::{Value, NIL};
 use mesh_generation::{generate_noise_map, PolyMesh};
 use noise::{Perlin, Seedable};
 
@@ -14,5 +14,5 @@ pub fn generate(_rb_module: Value) -> Value {
 
     //let result = rb_ary_new_capa(mesh.vertices)
 
-    return unsafe { rb_int2inum(200) };
+    return NIL;
 }
