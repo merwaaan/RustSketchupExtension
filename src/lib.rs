@@ -1,4 +1,4 @@
-use crate::ruby::ruby::{rb_cObject, rb_const_get, rb_define_module_function, rb_intern};
+use crate::ruby::{c_object, const_get, define_module_function};
 
 pub mod basic;
 pub mod gameboy;
@@ -17,12 +17,7 @@ pub extern "C" fn Init_RustSketchupTest() {
 
     // Rust functions exposed to Ruby
 
-    let rb_module = unsafe {
-        rb_const_get(
-            rb_cObject,
-            rb_intern("RustExtension\0".as_ptr() as *const libc::c_char),
-        )
-    };
+    let rb_module = const_get(c_object(), "RustExtension");
 
     ruby_function!(rb_module, basic::callback_test, "binding_test", 1);
 
@@ -36,7 +31,7 @@ pub extern "C" fn Init_RustSketchupTest() {
     ruby_function!(
         rb_module,
         physics::set_static_objects,
-        "physics_set_static_object",
+        "physics_set_static_objects",
         1
     );
     ruby_function!(
