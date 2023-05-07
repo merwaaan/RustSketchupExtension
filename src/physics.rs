@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use rapier3d::prelude::*;
 
 use crate::ruby::{RubyArray, RubyFloat, RubyInt, Value, NIL};
@@ -29,7 +31,8 @@ fn create_objects(rb_objects: Value, is_static: bool) {
         let y: f64 = rb_position.at(1).into();
         let z: f64 = rb_position.at(2).into();
 
-        let position = vector![x as f32, y as f32, z as f32];
+        let mut position = vector![x as f32, y as f32, z as f32];
+        position.scale_mut(0.0254);
 
         let builder = if is_static {
             RigidBodyBuilder::fixed()
@@ -56,7 +59,8 @@ fn create_objects(rb_objects: Value, is_static: bool) {
                 let y: f64 = rb_vertex.at(1).into();
                 let z: f64 = rb_vertex.at(2).into();
 
-                let vertex = point![x as f32, y as f32, z as f32];
+                let mut vertex = point![x as f32, y as f32, z as f32];
+                vertex = vertex.mul(0.0254);
 
                 vertices.push(vertex);
             }
@@ -157,10 +161,13 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
 
             // Transformation
 
+            let mut p = body.translation().clone();
+            p.scale_mut(39.3701);
+
             let rb_position = RubyArray::with_capacity(3);
-            rb_position.push(RubyFloat::new(body.translation().x.into()));
-            rb_position.push(RubyFloat::new(body.translation().y.into()));
-            rb_position.push(RubyFloat::new(body.translation().z.into()));
+            rb_position.push(RubyFloat::new(p.x.into()));
+            rb_position.push(RubyFloat::new(p.y.into()));
+            rb_position.push(RubyFloat::new(p.z.into()));
             rb_object_data.push(rb_position);
 
             rb_frame.push(rb_object_data);
