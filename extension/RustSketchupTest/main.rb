@@ -69,13 +69,17 @@ module RustExtension
     physics_set_static_objects(prepare_objects.call(static_initial, true))
     physics_set_dynamic_objects(prepare_objects.call(dynamic_initial, false))
 
+    # Polyhedron setup
+
+    polyhedron_next_position = Geom::Point3d.new()
+
     # Menu
 
     UI.add_context_menu_handler do |menu|
 
       # Polyhedron
 
-      menu.add_item("Polyhedron") {
+      menu.add_item("Create random polyhedron") {
         polyhedron = generate_polyhedron
 
         model = Sketchup.active_model
@@ -89,6 +93,13 @@ module RustExtension
             builder.add_face(face)
           end
         }
+
+        scale = Geom::Transformation.scaling(10)
+
+        translation = Geom::Transformation.translation(polyhedron_next_position)
+        polyhedron_next_position += Geom::Vector3d.new(25, 0, 0)
+
+        group.transform!(translation * scale)
 
         model.commit_operation
       }
