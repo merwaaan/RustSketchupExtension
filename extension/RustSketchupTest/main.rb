@@ -73,6 +73,67 @@ module RustExtension
 
     polyhedron_next_position = Geom::Point3d.new()
 
+    # Game Boy setup
+
+    class GameBoyTool
+      def activate
+        puts "Starting Game Boy"
+
+        RustExtension::gameboy_load_rom(123) #TODO path
+
+        timer = UI.start_timer(1.0 / 60.0, true) do
+          screen_buffer = RustExtension::gameboy_run_frame(1)
+
+          image = Sketchup::ImageRep.new
+          image.set_data(160, 144, 24, 0, screen_buffer.pack("C*"))
+
+          screen_material = Sketchup.active_model.materials['screen'] || Sketchup.active_model.materials.add("screen")
+          screen_material.texture = image
+
+          Sketchup.active_model.active_view.invalidate
+        end
+      end
+
+      def get_button_name(key)
+        names = {
+          37 => 'left',
+          38 => 'up',
+          39 => 'right',
+          40 => 'down',
+          97 => 'a',
+          98 => 'b',
+          100 => 'start',
+          101 => 'select',
+        }
+
+        names[key]
+      end
+
+      def onKeyDown(key, repeat, flags, view)
+        button = get_button_name(key)
+
+        if button
+          puts "Pressing button #{key}"
+          RustExtension::gameboy_press_button(button)
+          return true
+        else
+          return false
+        end
+      end
+
+      def onKeyUp(key, repeat, flags, view)
+        button = get_button_name(key)
+
+        if button
+          puts "Releasing button #{key}"
+          RustExtension::gameboy_release_button(button)
+          return true
+        else
+          return false
+        end
+      end
+    end
+
     # Menu
 
     UI.add_context_menu_handler do |menu|
@@ -157,29 +218,9 @@ module RustExtension
 
       # GameBoy
 
-      screen_material = all_materials['screen'] || all_materials.add("screen")
-
-      menu.add_item("GameBoy: load") {
-        gameboy_load_rom(123)
-      }
-
-      menu.add_item("GameBoy: run") {
-
-        gameboy_load_rom(123)
-
-        timer = UI.start_timer(1.0 / 60.0, true) do
-          screen_buffer = gameboy_run_frame(1)
-
-          image = Sketchup::ImageRep.new
-
-          # color = Sketchup::Color.new("Red")
-          # rgba = color.to_a
-          # bgra = rgba.values_at(2, 1, 0, 3)
-          # color_data = bgra.pack("C*")
-          image.set_data(160, 144, 24, 0, screen_buffer.pack("C*"))
-          screen_material.texture = image
-          Sketchup.active_model.active_view.invalidate
-        end
+      menu.add_item("GameBoy: start") {
+        gameboy_tool = GameBoyTool.new
+        Sketchup.active_model.select_tool(gameboy_tool)
       }
     end
   end

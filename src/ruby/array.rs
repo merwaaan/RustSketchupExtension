@@ -74,7 +74,6 @@ impl From<Value> for RubyArray {
 #[derive(Debug, PartialEq)]
 #[repr(C)]
 enum RArrayEmbed {
-    LenMax = 3,
     Flag = (1 << 13) as isize,
     LenMask = ((1 << 16) | (1 << 15)) as isize,
     LenShift = (12 + 3) as isize,

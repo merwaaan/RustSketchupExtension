@@ -19,7 +19,11 @@ pub extern "C" fn Init_RustSketchupTest() {
 
     let rb_module = const_get(c_object(), "RustExtension");
 
+    // Basic
+
     ruby_function!(rb_module, basic::callback_test, "binding_test", 1);
+
+    // Polyhedron
 
     ruby_function!(
         rb_module,
@@ -27,6 +31,8 @@ pub extern "C" fn Init_RustSketchupTest() {
         "generate_polyhedron",
         0
     );
+
+    // Physics
 
     ruby_function!(
         rb_module,
@@ -42,7 +48,15 @@ pub extern "C" fn Init_RustSketchupTest() {
     );
     ruby_function!(rb_module, physics::simulate, "physics_simulate", 1);
 
+    // GameBoy
+
     ruby_function!(rb_module, gameboy::load_rom, "gameboy_load_rom", 1);
     ruby_function!(rb_module, gameboy::press_button, "gameboy_press_button", 1);
+    ruby_function!(
+        rb_module,
+        gameboy::release_button,
+        "gameboy_release_button",
+        1
+    );
     ruby_function!(rb_module, gameboy::run_frame, "gameboy_run_frame", 1);
 }
