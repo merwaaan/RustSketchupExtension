@@ -77,9 +77,11 @@ module RustExtension
 
     class GameBoyTool
       def activate
-        puts "Starting Game Boy"
+        rom_path = UI.openpanel("Open Game Boy ROM", "", "Game Boy ROMs|*.gb")
 
-        RustExtension::gameboy_load_rom(123) #TODO path
+        puts "Starting Game Boy with #{rom_path}"
+
+        RustExtension::gameboy_load_rom(rom_path)
 
         timer = UI.start_timer(1.0 / 60.0, true) do
           screen_buffer = RustExtension::gameboy_run_frame(1)

@@ -5,9 +5,10 @@ use crate::ruby::{array::RubyArray, numeric::RubyInt, RubyString, Value, NIL};
 static mut GAMEBOY: Option<GameBoy> = None;
 
 pub fn load_rom(_rb_module: Value, rb_path: Value) -> Value {
-    let gameboy = GameBoy::builder("C:/Users/Utilisateur/dev/rust-sketchup-test/tetris.gb")
-        .build()
-        .unwrap();
+    let rb_path: RubyString = rb_path.into();
+    let path: String = rb_path.to_string();
+
+    let gameboy = GameBoy::builder(&path).build().unwrap();
 
     unsafe { GAMEBOY = Some(gameboy) };
 
@@ -15,9 +16,9 @@ pub fn load_rom(_rb_module: Value, rb_path: Value) -> Value {
 }
 
 fn get_joypad_button(rb_button_name: Value) -> JoypadButton {
-    let button_name: RubyString = rb_button_name.into();
+    let rb_button_name: RubyString = rb_button_name.into();
 
-    match &button_name.to_string()[..] {
+    match &rb_button_name.to_string()[..] {
         "a" => JoypadButton::A,
         "b" => JoypadButton::B,
         "up" => JoypadButton::Up,
@@ -29,7 +30,6 @@ fn get_joypad_button(rb_button_name: Value) -> JoypadButton {
         _ => JoypadButton::A,
     }
 }
-use std::io::prelude::*;
 pub fn press_button(_rb_module: Value, rb_button_name: Value) -> Value {
     if let Some(gb) = unsafe { &mut GAMEBOY } {
         gb.press_joypad(get_joypad_button(rb_button_name));
