@@ -3,6 +3,74 @@ require File.join(__dir__, 'RustSketchupTest.so')
 module RustExtension
   unless file_loaded?(__FILE__)
 
+    # Physics setup
+
+    all_materials = Sketchup.active_model.materials
+
+    static_material = all_materials['physics static'] || all_materials.add('physics static')
+    static_material.color = Sketchup::Color.new('Gray')
+
+    dynamic_material = all_materials['physics dynamic'] || all_materials.add('physics dynamic')
+    dynamic_material.color = Sketchup::Color.new('HotPink')
+
+    prepare_objects = lambda do |entities, static|
+      # Gather the entities' data
+
+      data = entities.map do |entity|
+        triangles = []
+
+        faces = entity.entities.select do |subentity|
+          subentity.is_a?(Sketchup::Face)
+        end
+
+        faces.each do |face|
+          face.mesh.polygons.each do |triangle|
+            vertices = triangle.map { |i| face.mesh.point_at(i.abs).transform(entity.transformation).to_a }
+            triangles.push(vertices)
+          end
+        end
+
+        [
+          # ID
+          entity.persistent_id,
+          # Transformation
+          entity.transformation.origin.to_a,
+          # Geometry
+          triangles
+        ]
+      end
+
+      # Apply the appropriate material
+
+      material = static ? static_material : dynamic_material
+
+      Sketchup.active_model.entities.each do |entity|
+        entity.material = nil if entity.material == material
+      end
+
+      entities.each do |entity|
+        entity.material = material
+      end
+
+      data
+    end
+
+    static_initial = []
+    dynamic_initial = []
+
+    Sketchup.active_model.entities.each do |entity|
+      if entity.material == static_material
+        static_initial.push(entity)
+      elsif entity.material == dynamic_material
+        dynamic_initial.push(entity)
+      end
+    end
+
+    physics_set_static_objects(prepare_objects.call(static_initial, true))
+    physics_set_dynamic_objects(prepare_objects.call(dynamic_initial, false))
+
+    # Menu
+
     UI.add_context_menu_handler do |menu|
 
       # Polyhedron
@@ -25,61 +93,9 @@ module RustExtension
         model.commit_operation
       }
 
+      menu.add_separator
+
       # Physics
-
-      all_materials = Sketchup.active_model.materials
-
-      STATIC_MATERIAL_NAME = 'physics static'
-      DYNAMIC_MATERIAL_NAME = 'physics dynamic'
-
-      static_material = all_materials[STATIC_MATERIAL_NAME] || all_materials.add(STATIC_MATERIAL_NAME)
-      static_material.color = 'red'
-
-      dynamic_material = all_materials[DYNAMIC_MATERIAL_NAME] || all_materials.add(DYNAMIC_MATERIAL_NAME)
-      dynamic_material.color = 'green'
-
-      prepare_objects = lambda do |entities, static|
-
-        # Gather the entities' data
-
-        data = entities.map do |entity|
-          triangles = []
-
-          faces = entity.entities.select do |subentity|
-            subentity.is_a?(Sketchup::Face)
-          end
-
-          faces.each do |face|
-            face.mesh.polygons.each do |triangle|
-              vertices = triangle.map { |i| face.mesh.point_at(i.abs).to_a }
-              triangles.push(vertices)
-            end
-          end
-
-          [
-            # ID
-            entity.persistent_id,
-            # Transformation
-            entity.transformation.origin.to_a,
-            # Geometry
-            triangles
-          ]
-        end
-
-        # Apply a material
-
-        material = static ? static_material : dynamic_material
-
-        Sketchup.active_model.entities.each do |entity|
-          entity.material = nil if entity.material == material
-        end
-
-        entities.each do |entity|
-          entity.material = material
-        end
-
-        data
-      end
 
       menu.add_item("Physics: set static") {
         data = prepare_objects.call(Sketchup.active_model.selection.to_a, true)
@@ -92,49 +108,41 @@ module RustExtension
       }
 
       menu.add_item("Physics: simulate") {
-        simulation = physics_simulate(200)
+        frames = physics_simulate(200)
 
-        frame_index = 0
+        timer = UI.start_timer(1.0 / 24.0, true) do
+          frame = frames.shift
 
-        timer = UI.start_timer(1.0 / 60.0, true) do
-          frame = simulation[frame_index]
+          if frame.empty?
+            UI.stop_timer(timer)
+          else
+            frame.each do |object_data|
+              id = object_data[0]
+              entity = Sketchup.active_model.find_entity_by_persistent_id(id)
 
-          frame.each do |object_data|
-            id = object_data[0]
-            entity = Sketchup.active_model.find_entity_by_persistent_id(id)
+              scale = Geom::Transformation.scaling(
+                Geom::Vector3d.new(entity.transformation.to_a[0..2]).length,
+                Geom::Vector3d.new(entity.transformation.to_a[4..6]).length,
+                Geom::Vector3d.new(entity.transformation.to_a[8..10]).length
+              )
 
-            position = Geom::Transformation.translation(object_data[1])
+              translation = Geom::Transformation.translation(object_data[1])
 
-            rotation = Geom::Transformation.rotation(
-              Geom::Point3d.new(0, 0, 0),
-              object_data[2].slice(0, 3),
-              object_data[2][3]
-            )
+              rotation = Geom::Transformation.rotation(
+                Geom::Point3d.new(0, 0, 0),
+                object_data[2].slice(0, 3),
+                object_data[2][3]
+              )
 
-            entity.move!(position * rotation)
+              entity.move!(translation * rotation * scale)
+            end
+
+            Sketchup.active_model.active_view.invalidate
           end
-
-          Sketchup.active_model.active_view.invalidate
-
-          frame_index += 1
-
-          UI.stop_timer(timer) if frame_index >= simulation.length()
         end
       }
 
-      static_initial = []
-      dynamic_initial = []
-
-      Sketchup.active_model.entities.each do |entity|
-        if entity.material == static_material
-          static_initial.push(entity)
-        elsif entity.material == dynamic_material
-          dynamic_initial.push(entity)
-        end
-      end
-
-      physics_set_static_objects(prepare_objects.call(static_initial, true))
-      physics_set_dynamic_objects(prepare_objects.call(dynamic_initial, false))
+      menu.add_separator
 
       # GameBoy
 
@@ -163,6 +171,5 @@ module RustExtension
         end
       }
     end
-
   end
 end

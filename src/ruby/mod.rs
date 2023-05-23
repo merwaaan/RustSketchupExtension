@@ -98,11 +98,9 @@ pub struct AnyObject {
     value: Value,
 }
 
+// Callback
+
 pub type Callback<I, O> = extern "C" fn(libc::c_int, *const AnyObject, I) -> O;
-
-// Nil
-
-pub const NIL: Value = Value { value: 0x08 };
 
 #[macro_export]
 macro_rules! ruby_function {
@@ -115,3 +113,7 @@ macro_rules! ruby_function {
         );
     };
 }
+
+// Nil
+
+pub const NIL: Value = Value { value: 0x08 };

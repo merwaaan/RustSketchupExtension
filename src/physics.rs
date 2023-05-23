@@ -1,8 +1,6 @@
-use std::ops::Mul;
-
-use rapier3d::prelude::*;
-
 use crate::ruby::{RubyArray, RubyFloat, RubyInt, Value, NIL};
+use rapier3d::prelude::*;
+use std::ops::Mul;
 
 struct Object {
     body: RigidBody,
@@ -100,9 +98,12 @@ pub fn set_dynamic_objects(_rb_module: Value, rb_objects: Value) -> Value {
 }
 
 pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
-    let mut pipeline = PhysicsPipeline::new();
     let gravity = vector![0.0, 0.0, -9.81];
-    let integration_params = IntegrationParameters::default();
+
+    let mut integration_params = IntegrationParameters::default();
+    integration_params.dt = 1.0 / 24.0;
+
+    let mut pipeline = PhysicsPipeline::new();
     let mut island_manager = IslandManager::new();
     let mut broadphase = BroadPhase::new();
     let mut narrowphase = NarrowPhase::new();
@@ -129,6 +130,8 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
         }
     }
 
+    let object_count = unsafe { STATIC_OBJECTS.len() + DYNAMIC_OBJECTS.len() };
+
     let frame_count: i64 = rb_frame_count.into();
 
     let rb_frames = RubyArray::with_capacity(frame_count as usize);
@@ -150,10 +153,10 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
             &event_handler,
         );
 
-        let rb_frame = RubyArray::with_capacity(1); // TODO obj count
+        let rb_frame = RubyArray::with_capacity(object_count);
 
         for (_handle, body) in bodies.iter() {
-            let rb_object_data = RubyArray::with_capacity(2);
+            let rb_object_data = RubyArray::with_capacity(3);
 
             // ID
 
