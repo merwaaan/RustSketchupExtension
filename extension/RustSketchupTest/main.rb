@@ -17,26 +17,13 @@ module RustExtension
       # Gather the entities' data
 
       data = entities.map do |entity|
-        triangles = []
-
-        faces = entity.entities.select do |subentity|
-          subentity.is_a?(Sketchup::Face)
-        end
-
-        faces.each do |face|
-          face.mesh.polygons.each do |triangle|
-            vertices = triangle.map { |i| face.mesh.point_at(i.abs).transform(entity.transformation).to_a }
-            triangles.push(vertices)
-          end
-        end
-
         [
           # ID
           entity.persistent_id,
-          # Transformation
-          entity.transformation.origin.to_a,
-          # Geometry
-          triangles
+          # Center
+          entity.bounds.center.to_a,
+          # Size
+          [entity.bounds.width, entity.bounds.height, entity.bounds.depth]
         ]
       end
 
@@ -182,12 +169,15 @@ module RustExtension
       }
 
       menu.add_item("Physics: simulate") {
+        puts "Starting physics simulation"
+
         frames = physics_simulate(200)
 
         timer = UI.start_timer(1.0 / 24.0, true) do
           frame = frames.shift
 
-          if frame.empty?
+          if frame.nil?
+            puts "Stopping physics simulation"
             UI.stop_timer(timer)
           else
             frame.each do |object_data|

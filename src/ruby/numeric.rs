@@ -78,6 +78,12 @@ impl RubyFloat {
     }
 }
 
+impl Into<f32> for RubyFloat {
+    fn into(self) -> f32 {
+        unsafe { rb_num2dbl(self.internal) as f32 }
+    }
+}
+
 impl Into<f64> for RubyFloat {
     fn into(self) -> f64 {
         unsafe { rb_num2dbl(self.internal) as f64 }

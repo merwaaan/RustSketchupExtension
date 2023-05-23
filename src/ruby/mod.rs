@@ -86,6 +86,18 @@ impl Into<f64> for Value {
     }
 }
 
+impl From<f32> for Value {
+    fn from(value: f32) -> Self {
+        RubyFloat::new(value as f64).value()
+    }
+}
+
+impl Into<f32> for Value {
+    fn into(self) -> f32 {
+        RubyFloat::from_ruby(self).into()
+    }
+}
+
 // Object
 
 pub trait Object {

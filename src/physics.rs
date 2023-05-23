@@ -1,6 +1,5 @@
 use crate::ruby::{RubyArray, RubyFloat, RubyInt, Value, NIL};
 use rapier3d::prelude::*;
-use std::ops::Mul;
 
 struct Object {
     body: RigidBody,
@@ -11,6 +10,15 @@ static mut STATIC_OBJECTS: Vec<Object> = vec![];
 static mut DYNAMIC_OBJECTS: Vec<Object> = vec![];
 
 fn create_objects(rb_objects: Value, is_static: bool) {
+    unsafe {
+        // TODO?
+        if is_static {
+            STATIC_OBJECTS.clear();
+        } else {
+            DYNAMIC_OBJECTS.clear();
+        }
+    }
+
     let rb_objects: RubyArray = rb_objects.into();
 
     for object_index in 0..rb_objects.length() {
@@ -21,16 +29,15 @@ fn create_objects(rb_objects: Value, is_static: bool) {
         let rb_id = rb_object.at(0);
         let id: i64 = rb_id.into();
 
-        // Transformation
+        // Center
 
-        let rb_position: RubyArray = rb_object.at(1).into();
+        let rb_center: RubyArray = rb_object.at(1).into();
 
-        let x: f64 = rb_position.at(0).into();
-        let y: f64 = rb_position.at(1).into();
-        let z: f64 = rb_position.at(2).into();
+        let x: f32 = rb_center.at(0).into();
+        let y: f32 = rb_center.at(1).into();
+        let z: f32 = rb_center.at(2).into();
 
-        let mut position = vector![x as f32, y as f32, z as f32];
-        position.scale_mut(0.0254);
+        let center = vector![x as f32, y as f32, z as f32];
 
         let builder = if is_static {
             RigidBodyBuilder::fixed()
@@ -38,39 +45,17 @@ fn create_objects(rb_objects: Value, is_static: bool) {
             RigidBodyBuilder::dynamic()
         };
 
-        let body = builder.user_data(id as u128).translation(position).build();
+        let body = builder.user_data(id as u128).translation(center).build();
 
-        // Geometry
+        // Size
 
-        let rb_triangles: RubyArray = rb_object.at(2).into();
+        let rb_size: RubyArray = rb_object.at(2).into();
 
-        let mut vertices: Vec<nalgebra::OPoint<f32, nalgebra::Const<3>>> = Vec::new();
-        let mut indices: Vec<[u32; 3]> = Vec::new();
+        let sx: f32 = rb_size.at(0).into();
+        let sy: f32 = rb_size.at(1).into();
+        let sz: f32 = rb_size.at(2).into();
 
-        for triangle_index in 0..rb_triangles.length() {
-            let rb_triangle: RubyArray = rb_triangles.at(triangle_index).into();
-
-            for vertex_index in 0..3 {
-                let rb_vertex: RubyArray = rb_triangle.at(vertex_index).into();
-
-                let x: f64 = rb_vertex.at(0).into();
-                let y: f64 = rb_vertex.at(1).into();
-                let z: f64 = rb_vertex.at(2).into();
-
-                let mut vertex = point![x as f32, y as f32, z as f32];
-                vertex = vertex.mul(0.0254);
-
-                vertices.push(vertex);
-            }
-
-            indices.push([
-                triangle_index as u32 * 3,
-                triangle_index as u32 * 3 + 1,
-                triangle_index as u32 * 3 + 2,
-            ]);
-        }
-
-        let collider = ColliderBuilder::trimesh(vertices, indices).build();
+        let collider = ColliderBuilder::cuboid(sx * 0.5, sy * 0.5, sz * 0.5).build();
 
         let object = Object { body, collider };
 
@@ -98,10 +83,10 @@ pub fn set_dynamic_objects(_rb_module: Value, rb_objects: Value) -> Value {
 }
 
 pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
-    let gravity = vector![0.0, 0.0, -9.81];
+    let gravity = vector![0.0, 0.0, -9.81 * 39.3701];
 
     let mut integration_params = IntegrationParameters::default();
-    integration_params.dt = 1.0 / 24.0;
+    integration_params.dt = 1.0 / 60.0;
 
     let mut pipeline = PhysicsPipeline::new();
     let mut island_manager = IslandManager::new();
@@ -119,13 +104,11 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
     unsafe {
         for object in &STATIC_OBJECTS {
             let body_handle = bodies.insert(object.body.clone());
-
             colliders.insert_with_parent(object.collider.clone(), body_handle, &mut bodies);
         }
 
         for object in &DYNAMIC_OBJECTS {
             let body_handle = bodies.insert(object.body.clone());
-
             colliders.insert_with_parent(object.collider.clone(), body_handle, &mut bodies);
         }
     }
@@ -164,8 +147,7 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
 
             // Position
 
-            let mut position = body.translation().clone();
-            position.scale_mut(39.3701);
+            let position = body.translation().clone();
 
             let rb_position = RubyArray::with_capacity(3);
             rb_position.push(RubyFloat::new(position.x.into()));
@@ -177,7 +159,7 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
 
             let maybe_axis_angle = body.rotation().axis_angle();
 
-            let rb_rotation = RubyArray::with_capacity(3);
+            let rb_rotation = RubyArray::with_capacity(4);
 
             if let Some(axis_angle) = maybe_axis_angle {
                 rb_rotation.push(RubyFloat::new(axis_angle.0[0].into()));
