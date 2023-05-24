@@ -1,23 +1,27 @@
 use crate::ruby::{RubyArray, RubyFloat, RubyInt, Value, NIL};
 use rapier3d::prelude::*;
+use std::cell::RefCell;
 
 struct Object {
     body: RigidBody,
     collider: Collider,
 }
 
-static mut STATIC_OBJECTS: Vec<Object> = vec![];
-static mut DYNAMIC_OBJECTS: Vec<Object> = vec![];
+thread_local!(
+    static STATIC_OBJECTS: RefCell<Vec<Object>> = RefCell::new(vec![]);
+    static DYNAMIC_OBJECTS: RefCell<Vec<Object>> = RefCell::new(vec![]);
+);
 
 fn create_objects(rb_objects: Value, is_static: bool) {
-    unsafe {
-        // TODO?
-        if is_static {
-            STATIC_OBJECTS.clear();
-        } else {
-            DYNAMIC_OBJECTS.clear();
-        }
-    }
+    let objects = if is_static {
+        &STATIC_OBJECTS
+    } else {
+        &DYNAMIC_OBJECTS
+    };
+
+    objects.with(|objects| {
+        objects.borrow_mut().clear();
+    });
 
     let rb_objects: RubyArray = rb_objects.into();
 
@@ -59,14 +63,9 @@ fn create_objects(rb_objects: Value, is_static: bool) {
 
         let object = Object { body, collider };
 
-        unsafe {
-            // TODO?
-            if is_static {
-                STATIC_OBJECTS.push(object);
-            } else {
-                DYNAMIC_OBJECTS.push(object);
-            }
-        }
+        objects.with(|objects| {
+            objects.borrow_mut().push(object);
+        });
     }
 }
 
@@ -83,6 +82,8 @@ pub fn set_dynamic_objects(_rb_module: Value, rb_objects: Value) -> Value {
 }
 
 pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
+    // Setup the simulation
+
     let gravity = vector![0.0, 0.0, -9.81 * 39.3701];
 
     let mut integration_params = IntegrationParameters::default();
@@ -101,19 +102,22 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
     let mut bodies = RigidBodySet::new();
     let mut colliders = ColliderSet::new();
 
-    unsafe {
-        for object in &STATIC_OBJECTS {
-            let body_handle = bodies.insert(object.body.clone());
-            colliders.insert_with_parent(object.collider.clone(), body_handle, &mut bodies);
-        }
+    // Insert objects
 
-        for object in &DYNAMIC_OBJECTS {
-            let body_handle = bodies.insert(object.body.clone());
-            colliders.insert_with_parent(object.collider.clone(), body_handle, &mut bodies);
-        }
+    let mut object_count = 0;
+
+    for objects in &[STATIC_OBJECTS, DYNAMIC_OBJECTS] {
+        objects.with(|objects| {
+            object_count += objects.borrow().len();
+
+            for object in objects.borrow().iter() {
+                let body_handle = bodies.insert(object.body.clone());
+                colliders.insert_with_parent(object.collider.clone(), body_handle, &mut bodies);
+            }
+        });
     }
 
-    let object_count = unsafe { STATIC_OBJECTS.len() + DYNAMIC_OBJECTS.len() };
+    // Run
 
     let frame_count: i64 = rb_frame_count.into();
 
@@ -135,6 +139,8 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
             &physics_hooks,
             &event_handler,
         );
+
+        // Convert the frame to Ruby
 
         let rb_frame = RubyArray::with_capacity(object_count);
 
