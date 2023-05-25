@@ -3,6 +3,36 @@ require File.join(__dir__, 'RustSketchupTest.so')
 module RustExtension
   unless file_loaded?(__FILE__)
 
+    # Polyhedron setup
+
+    polyhedron_next_position = Geom::Point3d.new()
+
+    # Terrain setup
+
+    class TerrainTool
+      def onLButtonUp(flags, x, y, view)
+        ray = view.pickray(x, y)
+        ground = [Geom::Point3d.new(0, 0 ,0), Geom::Vector3d.new(0, 0, 1)]
+        point = Geom.intersect_line_plane(ray, ground)
+
+        triangles = RustExtension::terrain_generate(100)
+
+        Sketchup.active_model.start_operation('Create terrain', true)
+
+        terrain = Sketchup.active_model.entities.add_group
+        terrain.transform!(Geom::Transformation.translation(point.to_a) * Geom::Transformation.scaling(10))
+
+        terrain.entities.build { |builder|
+          triangles.each { |triangle|
+            builder.add_face(*triangle)
+          }
+        }
+
+        Sketchup.active_model.commit_operation
+
+      end
+    end
+
     # Physics setup
 
     all_materials = Sketchup.active_model.materials
@@ -55,10 +85,6 @@ module RustExtension
 
     physics_set_static_objects(prepare_objects.call(static_initial, true))
     physics_set_dynamic_objects(prepare_objects.call(dynamic_initial, false))
-
-    # Polyhedron setup
-
-    polyhedron_next_position = Geom::Point3d.new()
 
     # Game Boy setup
 
@@ -169,20 +195,7 @@ module RustExtension
       # Terrain
 
       menu.add_item("Terrain: generate") {
-        triangles = terrain_generate(100)
-
-        Sketchup.active_model.start_operation('Create terrain', true)
-
-        terrain = Sketchup.active_model.entities.add_group
-        terrain.transform!(Geom::Transformation.scaling(10))
-
-        terrain.entities.build { |builder|
-          triangles.each { |triangle|
-            builder.add_face(*triangle)
-          }
-        }
-
-        Sketchup.active_model.commit_operation
+        Sketchup.active_model.select_tool(TerrainTool.new)
       }
 
       menu.add_separator

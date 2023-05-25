@@ -1,8 +1,11 @@
 use crate::ruby::{RubyArray, RubyFloat, Value};
 use perlin2d::PerlinNoise2D;
+use rand::prelude::*;
 
 pub fn generate(_rb_module: Value, rb_resolution: Value) -> Value {
     let resolution: usize = rb_resolution.into();
+
+    let mut random = rand::thread_rng();
 
     let perlin = PerlinNoise2D::new(
         6,
@@ -12,7 +15,7 @@ pub fn generate(_rb_module: Value, rb_resolution: Value) -> Value {
         2.0,
         (resolution as f64, resolution as f64),
         0.5,
-        666,
+        random.gen_range(1..1000),
     );
 
     let triangle_count = resolution.saturating_sub(1).pow(2) * 2;
