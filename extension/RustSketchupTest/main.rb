@@ -121,6 +121,18 @@ module RustExtension
       end
     end
 
+    class GameboySelectionObserver < Sketchup::SelectionObserver
+      def onSelectionBulkChange(selection)
+        gameboy = Sketchup.active_model.entities.find { |e| e.is_a?(Sketchup::ComponentInstance) && e.name == 'game boy' }
+
+        if selection.contains?(gameboy)
+          Sketchup.active_model.select_tool(GameBoyTool.new)
+        end
+      end
+    end
+
+    Sketchup.active_model.selection.add_observer(GameboySelectionObserver.new)
+
     # Menu
 
     UI.add_context_menu_handler do |menu|
@@ -226,13 +238,6 @@ module RustExtension
       }
 
       menu.add_separator
-
-      # GameBoy
-
-      menu.add_item("GameBoy: start") {
-        gameboy_tool = GameBoyTool.new
-        Sketchup.active_model.select_tool(gameboy_tool)
-      }
     end
   end
 end
