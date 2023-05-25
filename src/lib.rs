@@ -32,6 +32,10 @@ pub extern "C" fn Init_RustSketchupTest() {
         0
     );
 
+    // Terrain
+
+    ruby_function!(rb_module, terrain::generate, "terrain_generate", 1);
+
     // Physics
 
     ruby_function!(

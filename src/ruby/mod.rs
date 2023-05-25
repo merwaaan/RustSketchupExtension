@@ -62,6 +62,12 @@ pub struct Value {
     pub value: libc::uintptr_t,
 }
 
+impl Into<usize> for Value {
+    fn into(self) -> usize {
+        RubyInt::from_ruby(self).into()
+    }
+}
+
 impl From<i64> for Value {
     fn from(value: i64) -> Self {
         RubyInt::new(value).value()

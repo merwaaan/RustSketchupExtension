@@ -18,9 +18,7 @@ pub struct RubyInt {
 
 impl RubyInt {
     pub fn new(value: i64) -> Self {
-        Self {
-            internal: unsafe { rb_int2inum(value as isize) },
-        }
+        value.into()
     }
 
     pub fn from_ruby(rb_value: Value) -> Self {
@@ -37,6 +35,12 @@ impl RubyInt {
 impl Object for RubyInt {
     fn value(&self) -> Value {
         self.internal
+    }
+}
+
+impl Into<usize> for RubyInt {
+    fn into(self) -> usize {
+        unsafe { rb_num2int(self.internal) as usize }
     }
 }
 
@@ -67,10 +71,8 @@ pub struct RubyFloat {
 }
 
 impl RubyFloat {
-    pub fn new(x: f64) -> Self {
-        Self {
-            internal: unsafe { rb_float_new(x) },
-        }
+    pub fn new(value: f64) -> Self {
+        value.into()
     }
 
     pub fn from_ruby(rb_value: Value) -> Self {
@@ -81,6 +83,14 @@ impl RubyFloat {
 impl Into<f32> for RubyFloat {
     fn into(self) -> f32 {
         unsafe { rb_num2dbl(self.internal) as f32 }
+    }
+}
+
+impl From<f64> for RubyFloat {
+    fn from(value: f64) -> Self {
+        RubyFloat {
+            internal: unsafe { rb_float_new(value) },
+        }
     }
 }
 

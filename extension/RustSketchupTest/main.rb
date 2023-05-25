@@ -102,7 +102,6 @@ module RustExtension
         button = get_button_name(key)
 
         if button
-          puts "Pressing button #{key}"
           RustExtension::gameboy_press_button(button)
           return true
         else
@@ -114,7 +113,6 @@ module RustExtension
         button = get_button_name(key)
 
         if button
-          puts "Releasing button #{key}"
           RustExtension::gameboy_release_button(button)
           return true
         else
@@ -156,6 +154,27 @@ module RustExtension
 
       menu.add_separator
 
+      # Terrain
+
+      menu.add_item("Terrain: generate") {
+        triangles = terrain_generate(100)
+
+        Sketchup.active_model.start_operation('Create terrain', true)
+
+        terrain = Sketchup.active_model.entities.add_group
+        terrain.transform!(Geom::Transformation.scaling(10))
+
+        terrain.entities.build { |builder|
+          triangles.each { |triangle|
+            builder.add_face(*triangle)
+          }
+        }
+
+        Sketchup.active_model.commit_operation
+      }
+
+      menu.add_separator
+
       # Physics
 
       menu.add_item("Physics: set static") {
@@ -173,7 +192,7 @@ module RustExtension
 
         frames = physics_simulate(200)
 
-        timer = UI.start_timer(1.0 / 24.0, true) do
+        timer = UI.start_timer(1.0 / 60.0, true) do
           frame = frames.shift
 
           if frame.nil?
