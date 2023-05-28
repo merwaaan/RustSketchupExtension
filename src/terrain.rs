@@ -9,8 +9,8 @@ pub fn generate(_rb_module: Value, rb_resolution: Value) -> Value {
 
     let perlin = PerlinNoise2D::new(
         6,
-        10.0,
-        0.5,
+        random.gen_range(1f64..20f64),
+        random.gen_range(0.25f64..0.75f64),
         1.0,
         2.0,
         (resolution as f64, resolution as f64),

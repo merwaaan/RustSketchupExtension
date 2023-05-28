@@ -20,13 +20,22 @@ module RustExtension
         Sketchup.active_model.start_operation('Create terrain', true)
 
         terrain = Sketchup.active_model.entities.add_group
-        terrain.transform!(Geom::Transformation.translation(point.to_a) * Geom::Transformation.scaling(10))
+        terrain.transform!(Geom::Transformation.translation(point.to_a) * Geom::Transformation.scaling(25))
 
         terrain.entities.build { |builder|
           triangles.each { |triangle|
-            builder.add_face(*triangle)
+            face = builder.add_face(*triangle)
+
+            face.edges.each { |edge|
+              edge.visible = false
+              edge.smooth = true
+            }
           }
         }
+
+        material = Sketchup.active_model.materials['terrain'] || Sketchup.active_model.materials.add('physics static')
+        material.color = 'green'
+        terrain.material = material
 
         Sketchup.active_model.commit_operation
 
