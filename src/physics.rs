@@ -33,15 +33,23 @@ fn create_objects(rb_objects: Value, is_static: bool) {
         let rb_id = rb_object.at(0);
         let id: i64 = rb_id.into();
 
-        // Center
+        // Transformation
 
-        let rb_center: RubyArray = rb_object.at(1).into();
+        let rb_position: RubyArray = rb_object.at(1).into();
 
-        let x: f32 = rb_center.at(0).into();
-        let y: f32 = rb_center.at(1).into();
-        let z: f32 = rb_center.at(2).into();
+        let x: f64 = rb_position.at(0).into();
+        let y: f64 = rb_position.at(1).into();
+        let z: f64 = rb_position.at(2).into();
 
-        let center = vector![x as f32, y as f32, z as f32];
+        let position = vector![x as f32, y as f32, z as f32];
+
+        let rb_rotation: RubyArray = rb_object.at(2).into();
+
+        let rx: f64 = rb_rotation.at(0).into();
+        let ry: f64 = rb_rotation.at(1).into();
+        let rz: f64 = rb_rotation.at(2).into();
+
+        let rotation = vector![rx as f32, ry as f32, rz as f32];
 
         let builder = if is_static {
             RigidBodyBuilder::fixed()
@@ -49,17 +57,45 @@ fn create_objects(rb_objects: Value, is_static: bool) {
             RigidBodyBuilder::dynamic()
         };
 
-        let body = builder.user_data(id as u128).translation(center).build();
+        let body = builder
+            .user_data(id as u128)
+            .translation(position)
+            .rotation(rotation)
+            .ccd_enabled(true)
+            .build();
 
-        // Size
+        // Geometry
 
-        let rb_size: RubyArray = rb_object.at(2).into();
+        let rb_triangles: RubyArray = rb_object.at(3).into();
 
-        let sx: f32 = rb_size.at(0).into();
-        let sy: f32 = rb_size.at(1).into();
-        let sz: f32 = rb_size.at(2).into();
+        let mut vertices: Vec<nalgebra::OPoint<f32, nalgebra::Const<3>>> = Vec::new();
+        let mut indices: Vec<[u32; 3]> = Vec::new();
 
-        let collider = ColliderBuilder::cuboid(sx * 0.5, sy * 0.5, sz * 0.5).build();
+        for triangle_index in 0..rb_triangles.length() {
+            let rb_triangle: RubyArray = rb_triangles.at(triangle_index).into();
+
+            for vertex_index in 0..3 {
+                let rb_vertex: RubyArray = rb_triangle.at(vertex_index).into();
+
+                let x: f64 = rb_vertex.at(0).into();
+                let y: f64 = rb_vertex.at(1).into();
+                let z: f64 = rb_vertex.at(2).into();
+
+                let vertex = point![x as f32, y as f32, z as f32];
+
+                vertices.push(vertex);
+            }
+
+            indices.push([
+                triangle_index as u32 * 3,
+                triangle_index as u32 * 3 + 1,
+                triangle_index as u32 * 3 + 2,
+            ]);
+        }
+
+        let collider = ColliderBuilder::trimesh(vertices, indices)
+            .restitution(0.5)
+            .build();
 
         let object = Object { body, collider };
 
@@ -104,12 +140,10 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
 
     // Insert objects
 
-    let mut object_count = 0;
+    let object_count = DYNAMIC_OBJECTS.with(|objects| objects.borrow().len());
 
     for objects in &[STATIC_OBJECTS, DYNAMIC_OBJECTS] {
         objects.with(|objects| {
-            object_count += objects.borrow().len();
-
             for object in objects.borrow().iter() {
                 let body_handle = bodies.insert(object.body.clone());
                 colliders.insert_with_parent(object.collider.clone(), body_handle, &mut bodies);
@@ -145,6 +179,10 @@ pub fn simulate(_rb_module: Value, rb_frame_count: Value) -> Value {
         let rb_frame = RubyArray::with_capacity(object_count);
 
         for (_handle, body) in bodies.iter() {
+            if !body.is_dynamic() {
+                continue;
+            }
+
             let rb_object_data = RubyArray::with_capacity(3);
 
             // ID

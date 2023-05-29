@@ -52,17 +52,74 @@ module RustExtension
     dynamic_material = all_materials['physics dynamic'] || all_materials.add('physics dynamic')
     dynamic_material.color = Sketchup::Color.new('HotPink')
 
+    # https://forums.sketchup.com/t/how-to-find-the-rotation-of-the-entity/65295/6
+    def self.euler_angle(tr)
+      m = tr.xaxis.to_a + tr.yaxis.to_a + tr.zaxis.to_a
+      if m[6] != 1 && m[6] != -1
+        ry = -Math.asin(m[6])
+        rx = Math.atan2(m[7]/Math.cos(ry), m[8]/Math.cos(ry))
+        rz = Math.atan2(m[3]/Math.cos(ry), m[0]/Math.cos(ry))
+      else
+        rz = 0
+        phi = Math.atan2(m[1], m[2])
+        if m[6] == -1
+          ry = Math::PI/2
+          rx = rz + phi
+        else
+          ry = -Math::PI/2
+          rx = -rz + phi
+        end
+      end
+      return [-rx,-ry,-rz]
+    end
+
     prepare_objects = lambda do |entities, static|
-      # Gather the entities' data
+
+      extract_geometry = lambda do |entity, transformation|
+        # Own geometry
+
+        own_triangles = []
+
+        faces = entity.entities.select do |subentity|
+          subentity.is_a?(Sketchup::Face)
+        end
+
+        scale = Geom::Transformation.scaling(
+          Geom::Vector3d.new(entity.transformation.to_a[0..2]).length,
+          Geom::Vector3d.new(entity.transformation.to_a[4..6]).length,
+          Geom::Vector3d.new(entity.transformation.to_a[8..10]).length
+        ) * transformation
+
+        faces.each do |face|
+          face.mesh.polygons.each do |triangle|
+            vertices = triangle.map { |i| face.mesh.point_at(i.abs).transform(scale).to_a }
+            own_triangles.push(vertices)
+          end
+        end
+
+        # Children
+
+        sub_entities = entity.entities.select do |subentity|
+          subentity.is_a?(Sketchup::Group)
+        end
+
+        sub_triangles = sub_entities.flat_map do |entity|
+          extract_geometry(entity, scale)
+        end
+
+        own_triangles + sub_triangles
+      end
 
       data = entities.map do |entity|
         [
           # ID
           entity.persistent_id,
-          # Center
-          entity.bounds.center.to_a,
-          # Size
-          [entity.bounds.width, entity.bounds.height, entity.bounds.depth]
+          # Position
+          entity.transformation.origin.to_a,
+          # Rotation
+          euler_angle(entity.transformation),
+          # Geometry
+          extract_geometry.call(entity, Geom::Transformation.new())
         ]
       end
 
@@ -105,7 +162,7 @@ module RustExtension
 
         RustExtension::gameboy_load_rom(rom_path)
 
-        timer = UI.start_timer(1.0 / 60.0, true) do
+        @timer = UI.start_timer(1.0 / 60.0, true) do
           screen_buffer = RustExtension::gameboy_run_frame(1)
 
           image = Sketchup::ImageRep.new
@@ -116,6 +173,11 @@ module RustExtension
 
           Sketchup.active_model.active_view.invalidate
         end
+      end
+
+      def deactivate(view)
+        UI.stop_timer(@timer) unless @timer.nil?
+        @timer = nil
       end
 
       def get_button_name(key)
@@ -156,59 +218,82 @@ module RustExtension
       end
     end
 
-    class GameboySelectionObserver < Sketchup::SelectionObserver
-      def onSelectionBulkChange(selection)
-        gameboy = Sketchup.active_model.entities.find { |e| e.is_a?(Sketchup::ComponentInstance) && e.name == 'game boy' }
-
-        if selection.contains?(gameboy)
-          Sketchup.active_model.select_tool(GameBoyTool.new)
-        end
-      end
-    end
-
-    Sketchup.active_model.selection.add_observer(GameboySelectionObserver.new)
-
     # Menu
 
-    UI.add_context_menu_handler do |menu|
+    menu = UI.menu("Extensions").add_submenu("Rust extension")
 
-      # Polyhedron
+    menu.add_item("Create random polyhedron") {
+      polyhedron = generate_polyhedron
 
-      menu.add_item("Create random polyhedron") {
-        polyhedron = generate_polyhedron
+      model = Sketchup.active_model
 
-        model = Sketchup.active_model
+      model.start_operation('Create polyhedron', true)
 
-        model.start_operation('Create polyhedron', true)
+      group = model.entities.add_group
 
-        group = model.entities.add_group
+      group.entities.build { |builder|
+        polyhedron.each do |face|
+          builder.add_face(face)
+        end
+      }
 
-        group.entities.build { |builder|
-          polyhedron.each do |face|
-            builder.add_face(face)
+      scale = Geom::Transformation.scaling(10)
+
+      translation = Geom::Transformation.translation(polyhedron_next_position)
+      polyhedron_next_position += Geom::Vector3d.new(25, 0, 0)
+
+      group.transform!(translation * scale)
+
+      model.commit_operation
+    }
+
+    menu.add_item("Generate terrains") {
+      Sketchup.active_model.select_tool(TerrainTool.new)
+    }
+
+    menu.add_item("Simulate physics") {
+      frames = physics_simulate(500)
+
+      puts "Starting physics simulation"
+
+      timer = UI.start_timer(1.0 / 60.0, true) do
+        frame = frames.shift
+
+        if frame.nil?
+          puts "Stopping physics simulation"
+          UI.stop_timer(timer)
+        else
+          frame.each do |object_data|
+            id = object_data[0]
+            entity = Sketchup.active_model.find_entity_by_persistent_id(id)
+
+            scale = Geom::Transformation.scaling(
+              Geom::Vector3d.new(entity.transformation.to_a[0..2]).length,
+              Geom::Vector3d.new(entity.transformation.to_a[4..6]).length,
+              Geom::Vector3d.new(entity.transformation.to_a[8..10]).length
+            )
+
+            translation = Geom::Transformation.translation(object_data[1])
+
+            rotation = Geom::Transformation.rotation(
+              Geom::Point3d.new(0, 0, 0),
+              object_data[2].slice(0, 3),
+              object_data[2][3]
+            )
+
+            entity.move!(translation * rotation * scale)
           end
-        }
 
-        scale = Geom::Transformation.scaling(10)
+          Sketchup.active_model.active_view.invalidate
+        end
+      end
+    }
 
-        translation = Geom::Transformation.translation(polyhedron_next_position)
-        polyhedron_next_position += Geom::Vector3d.new(25, 0, 0)
+    menu.add_item("Play GameBoy") do |menu|
+      Sketchup.active_model.select_tool(GameBoyTool.new)
+    end
 
-        group.transform!(translation * scale)
-
-        model.commit_operation
-      }
-
-      menu.add_separator
-
-      # Terrain
-
-      menu.add_item("Terrain: generate") {
-        Sketchup.active_model.select_tool(TerrainTool.new)
-      }
-
-      menu.add_separator
-
+    UI.add_context_menu_handler do |menu|
       # Physics
 
       menu.add_item("Physics: set static") {
@@ -220,46 +305,6 @@ module RustExtension
         data = prepare_objects.call(Sketchup.active_model.selection.to_a, false)
         physics_set_dynamic_objects(data)
       }
-
-      menu.add_item("Physics: simulate") {
-        puts "Starting physics simulation"
-
-        frames = physics_simulate(200)
-
-        timer = UI.start_timer(1.0 / 60.0, true) do
-          frame = frames.shift
-
-          if frame.nil?
-            puts "Stopping physics simulation"
-            UI.stop_timer(timer)
-          else
-            frame.each do |object_data|
-              id = object_data[0]
-              entity = Sketchup.active_model.find_entity_by_persistent_id(id)
-
-              scale = Geom::Transformation.scaling(
-                Geom::Vector3d.new(entity.transformation.to_a[0..2]).length,
-                Geom::Vector3d.new(entity.transformation.to_a[4..6]).length,
-                Geom::Vector3d.new(entity.transformation.to_a[8..10]).length
-              )
-
-              translation = Geom::Transformation.translation(object_data[1])
-
-              rotation = Geom::Transformation.rotation(
-                Geom::Point3d.new(0, 0, 0),
-                object_data[2].slice(0, 3),
-                object_data[2][3]
-              )
-
-              entity.move!(translation * rotation * scale)
-            end
-
-            Sketchup.active_model.active_view.invalidate
-          end
-        end
-      }
-
-      menu.add_separator
     end
   end
 end
